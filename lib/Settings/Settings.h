@@ -68,13 +68,12 @@
             struct ConstSettings {
                 String hostname;
                 String apSsid;
-                String apPwd;
                 String apNetIp;
                 String apSubnet;
                 String apGateway;
             } cSettings = {
-                "LumenCtrl", // <---------- hostname (*later ID is added)
-                "LumenCtrl_", // <--------- apSsid (*later ID is added)
+                "Lumen", // <-------------- hostname (*later ID is added)
+                "Lumen_", // <------------- apSsid (*later ID is added)
                 "192.168.1.1", // <-------- apNetIp
                 "255.255.255.0", // <------ apSubnet
                 "192.168.1.1", // <-------- apGateway

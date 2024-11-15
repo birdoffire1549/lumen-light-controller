@@ -2,8 +2,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
+// #include <NTPClient.h>
+// #include <WiFiUdp.h>
 
 #include <Settings.h>
 #include <IpUtils.h>
@@ -14,9 +14,10 @@
 // Define Statements
 // =================================
 #define FIRMWARE_VERSION "1.0.0"
-#define LIGHT_PIN 4
-#define ON_OFF_PIN 5
-#define RESTORE_PIN 14
+
+#define LIGHT_PIN 5 // <----- D1
+#define ON_OFF_PIN 14 // <--- D5 
+#define RESTORE_PIN 13 // <-- D7 
 
 // =================================
 // Function Prototypes
@@ -31,15 +32,16 @@ void webHandleSettingsPage(void);
 void webHandleIncomingArgs(void);
 bool inOnZone(int time24);
 String intTimeToStringTime(int time24);
+int stringTimeToIntTime(String time24);
 
 // =================================
 // Setup of Services
 // =================================
-Settings settings = Settings();
+Settings settings;
 ESP8266WebServer web(80);
 DNSServer dns;
-WiFiUDP ntpUdp;
-NTPClient ntpClient(ntpUdp, "pool.ntp.org"); 
+// WiFiUDP ntpUdp;
+// NTPClient ntpClient(ntpUdp, "pool.ntp.org"); 
 
 // =================================
 // Worker Vars
@@ -56,9 +58,10 @@ void setup() {
   // Initialize Pins
   pinMode(LIGHT_PIN, OUTPUT);
   pinMode(RESTORE_PIN, INPUT);
+  pinMode(ON_OFF_PIN, INPUT);
 
   // Initialize Serial
-  Serial.begin(115200);
+  Serial.begin(9600);
   yield();
 
   // Reset and/or load settings
@@ -80,12 +83,14 @@ void setup() {
   if (initWiFiSTAMode()) {
     // STA init successful
     isSTAMode = true;
-    ntpClient.begin();
+    // ntpClient.begin();
   } else {
     // STA init failed
     Serial.println("Could not connect to a WiFi network; Falling back to AP Mode...");
     if (initWiFiAPMode()) {
+      Serial.println("WiFi AP Mode setup.");
       // AP init successful; Starting captive portal
+      Serial.printf("CheckPoint#1: %s\n", settings.getApNetIp().c_str());
       dns.start(53u, "*", IpUtils::stringIPv4ToIPAddress(settings.getApNetIp()));
     } else {
       // AP init failed
@@ -101,6 +106,8 @@ void setup() {
   web.on("/", webHandleMainPage);
   web.on("/admin", webHandleSettingsPage);
   web.onNotFound(webHandleMainPage);
+
+  web.begin();
 }
 
 /**
@@ -130,6 +137,7 @@ void loop() {
  */
 bool initWiFiAPMode() {
   WiFi.mode(WiFiMode::WIFI_AP);
+  Serial.printf("AP IP: %s\nGateway: %s\nSubnet: %s\n", settings.getApNetIp().c_str(), settings.getApGateway().c_str(), settings.getApSubnet().c_str());
   WiFi.softAPConfig(
     IpUtils::stringIPv4ToIPAddress(settings.getApNetIp()), 
     IpUtils::stringIPv4ToIPAddress(settings.getApGateway()), 
@@ -152,6 +160,7 @@ bool initWiFiSTAMode() {
     !settings.getSsid().equals(settings.getDefaultSsid()) 
     && !settings.getPwd().equals(settings.getDefaultPwd())
   ) {
+    Serial.println("Attempting to connect to WiFi...");
     WiFi.mode(WiFiMode::WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.begin(settings.getSsid(), settings.getPwd());
@@ -159,6 +168,8 @@ bool initWiFiSTAMode() {
     while (WiFi.status() != WL_CONNECTED && millis() - start < 15000UL) {
       yield();
     }
+
+    Serial.printf("WiFi connection was %s!\n", WiFi.status() == WL_CONNECTED ? "successful" : "failure");
 
     if (WiFi.status() == WL_CONNECTED) {
       // Connected
@@ -183,10 +194,11 @@ bool initWiFiSTAMode() {
 void doDeviceTasks() {
   doCheckForFactoryReset(false);
   doTimerFunctions();
-
+  
   // Toggle light state based on button press
   if (digitalRead(ON_OFF_PIN) == HIGH) {
     settings.setLightsOn(!settings.isLightsOn());
+    settings.saveSettings();
   }
 
   // Set light to appropriate state
@@ -257,31 +269,31 @@ void doCheckForFactoryReset(bool isPowerOn) {
  * 
  */
 void doTimerFunctions() {
-  static int timerLastUpdate = -1;
+  // static int timerLastUpdate = -1;
 
-  if (isSTAMode) {
-    // On a network so NTP Possible
-    ntpClient.update();
+  // if (isSTAMode) {
+  //   // On a network so NTP Possible
+  //   ntpClient.update();
 
-    if (ntpClient.isTimeSet() && settings.isTimerOn()) {
-      // Timer is turned on and we can know the time
-      int time24 = (ntpClient.getHours() * 100) + ntpClient.getMinutes();
+  //   if (ntpClient.isTimeSet() && settings.isTimerOn()) {
+  //     // Timer is turned on and we can know the time
+  //     int time24 = (ntpClient.getHours() * 100) + ntpClient.getMinutes();
     
-      // Determine what on/off zone we are in
-      bool curInOnZone = inOnZone(time24);
+  //     // Determine what on/off zone we are in
+  //     bool curInOnZone = inOnZone(time24);
     
-      // Perform on/off change if applicable
-      if (timerLastUpdate == -1 || inOnZone(timerLastUpdate) != curInOnZone) {
-        // Perform an update
-        if (curInOnZone) {
-          settings.setLightsOn(true);
-        } else {
-          settings.setLightsOn(false);
-        }
-        timerLastUpdate = time24;
-      }
-    }
-  }
+  //     // Perform on/off change if applicable
+  //     if (timerLastUpdate == -1 || inOnZone(timerLastUpdate) != curInOnZone) {
+  //       // Perform an update
+  //       if (curInOnZone) {
+  //         settings.setLightsOn(true);
+  //       } else {
+  //         settings.setLightsOn(false);
+  //       }
+  //       timerLastUpdate = time24;
+  //     }
+  //   }
+  // }
 }
 
 // ===============================================================
@@ -311,10 +323,72 @@ void webHandleMainPage() {
 void webHandleSettingsPage() {
   // Generate Settings Page
   // Send Settings Page
+  String content = SETTINGS_PAGE;
+  web.send(200, "text/html", content);
+  yield();
 }
 
 void webHandleIncomingArgs() {
+  if (web.method() == HTTP_POST) {
+    String doAction = web.arg("do");
+    if (doAction.equals("btn_on")) {
+      // Turn on lights if applicable
+      if (!settings.isLightsOn()) {
+        settings.setLightsOn(true);
+        settings.saveSettings();
+      }
+    } else if (doAction.equals("btn_off")) {
+      // Turn off lights if applicable
+      if (settings.isLightsOn()) {
+        settings.setLightsOn(false);
+        settings.saveSettings();
+      }
+    } else if (doAction.equals("toggle_timer_state")) {
+      // Hide or show timer controls/Enable or disable timer
+      settings.setTimerOn(!settings.isTimerOn());
+      settings.saveSettings();
+    } else if (doAction.equals("btn_update")) {
+      // Save timer settings
+      String on = web.arg("onat");
+      String off = web.arg("offat");
+      if (!on.isEmpty() && !off.isEmpty()) {
+        // convert and store updated times
+        settings.setOnTime(stringTimeToIntTime(on));
+        settings.setOffTime(stringTimeToIntTime(off));
+        settings.saveSettings();
+      }
+    } else if (doAction.equals("goto_admin")) {
+      webHandleSettingsPage();
 
+      return;
+    } else if (doAction.equals("admin_save")) {
+      // Save admin settings
+      String title = web.arg("title");
+      String heading = web.arg("heading");
+      String ssid = web.arg("ssid");
+      String pwd = web.arg("pwd");
+      String adminUser = web.arg("adminuser");
+      String adminPwd = web.arg("adminpwd");
+
+      if (
+        !title.isEmpty()
+        && !heading.isEmpty()
+        && !ssid.isEmpty()
+        && !pwd.isEmpty()
+        && !adminUser.isEmpty()
+        && !adminPwd.isEmpty()
+      ) {
+        settings.setTitle(title.c_str());
+        settings.setHeading(heading.c_str());
+        settings.setSsid(ssid.c_str());
+        settings.setPwd(pwd.c_str());
+        settings.setAdminUser(adminUser.c_str());
+        settings.setAdminPwd(adminPwd.c_str());
+
+        settings.saveSettings();
+      }
+    }
+  }
 }
 
 // ===============================================================
@@ -322,7 +396,7 @@ void webHandleIncomingArgs() {
 // ===============================================================
 
 /**
- * UTILITY FUNCTION:
+ * UTILITY FUNCTION
  * This function id used to determine if the given time is
  * located within the On Zone as defined by the on and off 
  * time settings of the timer.
@@ -349,6 +423,24 @@ bool inOnZone(int time24) {
   );
 }
 
+int stringTimeToIntTime(String time24) {
+  int sepIndex = time24.indexOf(":");
+  if (sepIndex != -1) {
+    int hours = time24.substring(0, sepIndex).toInt();
+    int mins = time24.substring(sepIndex + 1).toInt();
+
+    return ((hours * 100) + mins);
+  }
+
+  return 0;
+}
+
+/**
+ * UTILITY FUNCTION
+ * Converts an int which represents a 24 hour time
+ * into a String time with a colon between the 
+ * hours and minutes.
+ */
 String intTimeToStringTime(int time24) {
   if (time24 < 10) {
     String temp = "00:0";
@@ -361,17 +453,17 @@ String intTimeToStringTime(int time24) {
 
     return temp;
   } else if (time24 < 1000) {
-    String time = String(time24);
-    String temp = time.substring(0,1);
+    String t = String(time24);
+    String temp = t.substring(0,1);
     temp.concat(":");
-    temp.concat(time.substring(1, 3));
+    temp.concat(t.substring(1, 3));
 
     return temp;
   } else {
-    String time = String(time24);
-    String temp = time.substring(0, 2);
+    String t = String(time24);
+    String temp = t.substring(0, 2);
     temp.concat(":");
-    temp.concat(time.substring(2, 4));
+    temp.concat(t.substring(2, 4));
 
     return temp;
   }
