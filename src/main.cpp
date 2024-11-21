@@ -2,8 +2,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <DNSServer.h>
-// #include <NTPClient.h>
-// #include <WiFiUdp.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 #include <Settings.h>
 #include <IpUtils.h>
@@ -40,8 +40,8 @@ int stringTimeToIntTime(String time24);
 Settings settings;
 ESP8266WebServer web(80);
 DNSServer dns;
-// WiFiUDP ntpUdp;
-// NTPClient ntpClient(ntpUdp, "pool.ntp.org"); 
+WiFiUDP ntpUdp;
+NTPClient ntpClient(ntpUdp, "pool.ntp.org"); 
 
 // =================================
 // Worker Vars
@@ -61,7 +61,7 @@ void setup() {
   pinMode(ON_OFF_PIN, INPUT);
 
   // Initialize Serial
-  Serial.begin(9600);
+  Serial.begin(74880);
   yield();
 
   // Reset and/or load settings
@@ -78,24 +78,23 @@ void setup() {
   
   // Initialize Networking
   WiFi.setOutputPower(20.5F);
-  WiFi.setHostname(settings.getHostname(deviceId).c_str());
+  WiFi.setHostname("lumen");
 
   if (initWiFiSTAMode()) {
     // STA init successful
     isSTAMode = true;
-    // ntpClient.begin();
+    ntpClient.begin();
   } else {
     // STA init failed
-    Serial.println("Could not connect to a WiFi network; Falling back to AP Mode...");
+    Serial.println(F("Could not connect to a WiFi network; Falling back to AP Mode..."));
     if (initWiFiAPMode()) {
-      Serial.println("WiFi AP Mode setup.");
+      Serial.println(F("WiFi AP Mode setup."));
       // AP init successful; Starting captive portal
-      Serial.printf("CheckPoint#1: %s\n", settings.getApNetIp().c_str());
       dns.start(53u, "*", IpUtils::stringIPv4ToIPAddress(settings.getApNetIp()));
     } else {
       // AP init failed
-      Serial.println("Something went wrong; Unable to initialize AP!");
-      Serial.println("Rebooting in 15 Seconds...");
+      Serial.println(F("Something went wrong; Unable to initialize AP!"));
+      Serial.println(F("Rebooting in 15 Seconds..."));
       delay(15000ul);
 
       ESP.restart();
@@ -103,8 +102,8 @@ void setup() {
   }
 
   // Set page handlers for Web Server
-  web.on("/", webHandleMainPage);
-  web.on("/admin", webHandleSettingsPage);
+  web.on(F("/"), webHandleMainPage);
+  web.on(F("/admin"), webHandleSettingsPage);
   web.onNotFound(webHandleMainPage);
 
   web.begin();
@@ -160,7 +159,7 @@ bool initWiFiSTAMode() {
     !settings.getSsid().equals(settings.getDefaultSsid()) 
     && !settings.getPwd().equals(settings.getDefaultPwd())
   ) {
-    Serial.println("Attempting to connect to WiFi...");
+    Serial.println(F("Attempting to connect to WiFi..."));
     WiFi.mode(WiFiMode::WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.begin(settings.getSsid(), settings.getPwd());
@@ -262,38 +261,38 @@ void doCheckForFactoryReset(bool isPowerOn) {
 }
 
 /**
- * ACTION FUNCTION:
+ * ACTION FUNCTION
  * This action function performs the processes related to 
  * the functionality of the timer function. The timer capabilities
  * of the firmware all reside here.
  * 
  */
 void doTimerFunctions() {
-  // static int timerLastUpdate = -1;
+  static int timerLastUpdate = -1;
 
-  // if (isSTAMode) {
-  //   // On a network so NTP Possible
-  //   ntpClient.update();
+  if (isSTAMode && settings.isTimerOn()) {
+    // On a network so NTP Possible
+    ntpClient.update();
 
-  //   if (ntpClient.isTimeSet() && settings.isTimerOn()) {
-  //     // Timer is turned on and we can know the time
-  //     int time24 = (ntpClient.getHours() * 100) + ntpClient.getMinutes();
+    if (ntpClient.isTimeSet() && settings.isTimerOn()) {
+      // Timer is turned on and we can know the time
+      int time24 = (ntpClient.getHours() * 100) + ntpClient.getMinutes();
+
+      // Determine what on/off zone we are in
+      bool curInOnZone = inOnZone(time24);
     
-  //     // Determine what on/off zone we are in
-  //     bool curInOnZone = inOnZone(time24);
-    
-  //     // Perform on/off change if applicable
-  //     if (timerLastUpdate == -1 || inOnZone(timerLastUpdate) != curInOnZone) {
-  //       // Perform an update
-  //       if (curInOnZone) {
-  //         settings.setLightsOn(true);
-  //       } else {
-  //         settings.setLightsOn(false);
-  //       }
-  //       timerLastUpdate = time24;
-  //     }
-  //   }
-  // }
+      // Perform on/off change if applicable
+      if (timerLastUpdate == -1 || inOnZone(timerLastUpdate) != curInOnZone) {
+        // Perform an update
+        if (curInOnZone) {
+          settings.setLightsOn(true);
+        } else {
+          settings.setLightsOn(false);
+        }
+        timerLastUpdate = time24;
+      }
+    }
+  }
 }
 
 // ===============================================================
@@ -305,70 +304,86 @@ void webHandleMainPage() {
   
   // Generate Main Page
   String content = MAIN_PAGE;
-  content.replace("${title}", settings.getTitle());
-  content.replace("${heading}", settings.getHeading());
-  content.replace("${version}", FIRMWARE_VERSION);
+  content.replace(F("${title}"), settings.getTitle());
+  content.replace(F("${heading}"), settings.getHeading());
+  content.replace(F("${version}"), FIRMWARE_VERSION);
   // FIXME: Need to figure out ${status_message}
-  content.replace("${on_off_status}", settings.isLightsOn() ? "On" : "Off");
-  content.replace("${timer_on_off}", settings.isTimerOn() ? "Enabled" : "Disabled");
-  content.replace("${schedule_hide}", settings.isTimerOn() ? "" : "hidden"); 
-  content.replace("${on_at}", intTimeToStringTime(settings.getOnTime()));
-  content.replace("${off_at}", intTimeToStringTime(settings.getOffTime()));
+  content.replace(F("${toggle_hidden}"), (WiFi.getMode() == WiFiMode::WIFI_STA ? F("") : F("hidden")));
+  content.replace(F("${on_off_status}"), settings.isLightsOn() ? F("On") : F("Off"));
+  content.replace(F("${cur_time}"), (ntpClient.isTimeSet() ? ntpClient.getFormattedTime() : F("Unknown")));
+  content.replace(F("${timer_on_off}"), settings.isTimerOn() ? F("Enabled") : F("Disabled"));
+  content.replace(F("${schedule_hide}"), settings.isTimerOn() ? F("") : F("hidden")); 
+  content.replace(F("${on_at}"), intTimeToStringTime(settings.getOnTime()));
+  content.replace(F("${off_at}"), intTimeToStringTime(settings.getOffTime()));
   
   // Send Main Page
-  web.send(200, "text/html", content);
+  web.send(200, F("text/html"), content);
   yield();
 }
 
 void webHandleSettingsPage() {
-  // Generate Settings Page
-  // Send Settings Page
+  /* Ensure user authenticated */
+  if (!web.authenticate(settings.getAdminUser().c_str(), settings.getAdminPwd().c_str())) {
+    // User not yet authenticated
+
+    return web.requestAuthentication(DIGEST_AUTH, "AdminRealm", "Authentication failed!");
+  }
+
   String content = SETTINGS_PAGE;
-  web.send(200, "text/html", content);
+
+  content.replace(F("${title}"), settings.getTitle());
+  content.replace(F("${heading}"), settings.getHeading());
+  content.replace(F("${version}"), FIRMWARE_VERSION);
+  content.replace(F("${ssid}"), settings.getSsid());
+  content.replace(F("${pwd}"), settings.getPwd());
+  content.replace(F("${adminuser}"), settings.getAdminUser());
+  content.replace(F("${adminpwd}"), settings.getAdminPwd());
+  
+  web.send(200, F("text/html"), content);
   yield();
 }
 
 void webHandleIncomingArgs() {
   if (web.method() == HTTP_POST) {
-    String doAction = web.arg("do");
-    if (doAction.equals("btn_on")) {
+    String doAction = web.arg(F("do"));
+    if (doAction.equals(F("btn_on"))) {
       // Turn on lights if applicable
       if (!settings.isLightsOn()) {
         settings.setLightsOn(true);
         settings.saveSettings();
       }
-    } else if (doAction.equals("btn_off")) {
+    } else if (doAction.equals(F("btn_off"))) {
       // Turn off lights if applicable
       if (settings.isLightsOn()) {
         settings.setLightsOn(false);
         settings.saveSettings();
       }
-    } else if (doAction.equals("toggle_timer_state")) {
+    } else if (doAction.equals(F("toggle_timer_state"))) {
       // Hide or show timer controls/Enable or disable timer
       settings.setTimerOn(!settings.isTimerOn());
       settings.saveSettings();
-    } else if (doAction.equals("btn_update")) {
+    } else if (doAction.equals(F("btn_update"))) {
       // Save timer settings
-      String on = web.arg("onat");
-      String off = web.arg("offat");
+      String on = web.arg(F("onat"));
+      String off = web.arg(F("offat"));
       if (!on.isEmpty() && !off.isEmpty()) {
         // convert and store updated times
         settings.setOnTime(stringTimeToIntTime(on));
         settings.setOffTime(stringTimeToIntTime(off));
         settings.saveSettings();
       }
-    } else if (doAction.equals("goto_admin")) {
+    } else if (doAction.equals(F("goto_admin"))) {
       webHandleSettingsPage();
 
       return;
-    } else if (doAction.equals("admin_save")) {
+    } else if (doAction.equals(F("admin_save"))) {
       // Save admin settings
-      String title = web.arg("title");
-      String heading = web.arg("heading");
-      String ssid = web.arg("ssid");
-      String pwd = web.arg("pwd");
-      String adminUser = web.arg("adminuser");
-      String adminPwd = web.arg("adminpwd");
+      String title = web.arg(F("title"));
+      String heading = web.arg(F("heading"));
+      String ssid = web.arg(F("ssid"));
+      String pwd = web.arg(F("pwd"));
+      String adminUser = web.arg(F("adminuser"));
+      String adminPwd = web.arg(F("adminpwd"));
 
       if (
         !title.isEmpty()
@@ -378,6 +393,8 @@ void webHandleIncomingArgs() {
         && !adminUser.isEmpty()
         && !adminPwd.isEmpty()
       ) {
+        bool needReboot = !settings.getSsid().equals(ssid) || !settings.getPwd().equals(pwd);
+
         settings.setTitle(title.c_str());
         settings.setHeading(heading.c_str());
         settings.setSsid(ssid.c_str());
@@ -386,7 +403,16 @@ void webHandleIncomingArgs() {
         settings.setAdminPwd(adminPwd.c_str());
 
         settings.saveSettings();
+        if (needReboot) {
+          String message = F("<!DOCTYPE HTML><html lang=\"en\"><head></head><body><script>alert(\"Rebooting to apply settings!\");</script></body></html>");
+          web.send(200, F("text/html"), message.c_str());
+          yield();
+          delay(2000);
+          ESP.restart();
+        }
       }
+
+      yield();
     }
   }
 }
@@ -443,26 +469,26 @@ int stringTimeToIntTime(String time24) {
  */
 String intTimeToStringTime(int time24) {
   if (time24 < 10) {
-    String temp = "00:0";
+    String temp = F("00:0");
     temp.concat(String(time24));
 
     return temp;
   } else if (time24 < 100) {
-    String temp = "00:";
+    String temp = F("00:");
     temp.concat(String(time24));
 
     return temp;
   } else if (time24 < 1000) {
     String t = String(time24);
     String temp = t.substring(0,1);
-    temp.concat(":");
+    temp.concat(F(":"));
     temp.concat(t.substring(1, 3));
 
     return temp;
   } else {
     String t = String(time24);
     String temp = t.substring(0, 2);
-    temp.concat(":");
+    temp.concat(F(":"));
     temp.concat(t.substring(2, 4));
 
     return temp;
