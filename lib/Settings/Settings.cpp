@@ -196,8 +196,8 @@ void Settings::setOffTime(int time24) {
 
 String Settings::getHostname(String deviceId) {
     String result = cSettings.hostname;
-    result.concat(deviceId);
-
+    result.concat(deviceId); 
+    
     return result;
 }
 

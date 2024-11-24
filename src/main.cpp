@@ -22,17 +22,16 @@
 // =================================
 // Function Prototypes
 // =================================
-bool initWiFiAPMode(void);
-bool initWiFiSTAMode(void);
+void initWiFiAPMode(void);
+void initWiFiSTAMode(void);
 void doCheckForFactoryReset(bool isPowerOn);
 void doDeviceTasks(void);
 void doTimerFunctions(void);
 void webHandleMainPage(void);
+void doHandleMainPage(String popupMessage);
 void webHandleSettingsPage(void);
-void webHandleIncomingArgs(void);
+void doHandleIncomingArgs(bool enabled);
 bool inOnZone(int time24);
-String intTimeToStringTime(int time24);
-int stringTimeToIntTime(String time24);
 
 // =================================
 // Setup of Services
@@ -47,7 +46,7 @@ NTPClient ntpClient(ntpUdp, "pool.ntp.org");
 // Worker Vars
 // =================================
 String deviceId = "";
-bool isSTAMode = false;
+bool isSTAConnected = false;
 
 /**
  * =================================
@@ -74,32 +73,15 @@ void setup() {
   }
 
   // Determine Device ID
-  deviceId = Utils::genDeviceIdFromMacAddr(WiFi.macAddress());
+  deviceId = Utils::genDeviceIdFromMacAddr(WiFi.macAddress()).c_str();
   
   // Initialize Networking
   WiFi.setOutputPower(20.5F);
   WiFi.setHostname("lumen");
+  WiFi.mode(WiFiMode::WIFI_AP_STA);
 
-  if (initWiFiSTAMode()) {
-    // STA init successful
-    isSTAMode = true;
-    ntpClient.begin();
-  } else {
-    // STA init failed
-    Serial.println(F("Could not connect to a WiFi network; Falling back to AP Mode..."));
-    if (initWiFiAPMode()) {
-      Serial.println(F("WiFi AP Mode setup."));
-      // AP init successful; Starting captive portal
-      dns.start(53u, "*", IpUtils::stringIPv4ToIPAddress(settings.getApNetIp()));
-    } else {
-      // AP init failed
-      Serial.println(F("Something went wrong; Unable to initialize AP!"));
-      Serial.println(F("Rebooting in 15 Seconds..."));
-      delay(15000ul);
-
-      ESP.restart();
-    }
-  }
+  initWiFiAPMode();
+  initWiFiSTAMode();
 
   // Set page handlers for Web Server
   web.on(F("/"), webHandleMainPage);
@@ -127,15 +109,11 @@ void loop() {
 // ===============================================================
 
 /**
- * INIT FUNCTION: 
+ * INIT FUNCTION 
  * Initializes the WiFi into AP Mode.
  * 
- * @return Returns a bool true if device was able to enter AP mode
- * successfully otherwise a false is returned.
- * 
  */
-bool initWiFiAPMode() {
-  WiFi.mode(WiFiMode::WIFI_AP);
+void initWiFiAPMode() {
   Serial.printf("AP IP: %s\nGateway: %s\nSubnet: %s\n", settings.getApNetIp().c_str(), settings.getApGateway().c_str(), settings.getApSubnet().c_str());
   WiFi.softAPConfig(
     IpUtils::stringIPv4ToIPAddress(settings.getApNetIp()), 
@@ -143,28 +121,35 @@ bool initWiFiAPMode() {
     IpUtils::stringIPv4ToIPAddress(settings.getApSubnet())
   );
   
-  return WiFi.softAP(settings.getApSsid(deviceId), settings.getApPwd());
+  if (WiFi.softAP(settings.getApSsid(deviceId), settings.getApPwd())) {
+    Serial.println(F("WiFi AP Mode setup."));
+    dns.start(53u, "*", IpUtils::stringIPv4ToIPAddress(settings.getApNetIp()));
+
+    return;
+  }
+
+  Serial.println(F("Something went wrong; Unable to initialize AP!"));
+  Serial.println(F("Rebooting in 15 Seconds..."));
+  delay(15000);
+
+  ESP.restart();
 }
 
 /**
- * INIT FUNCTION: 
+ * INIT FUNCTION 
  * Initialize the WiFi into STA Mode.
  * 
- * @return Returns a bool true if the device was able to connect
- * to a WiFi network otherwise a false is returned.
- * 
  */
-bool initWiFiSTAMode() {
+void initWiFiSTAMode() {
   if (
     !settings.getSsid().equals(settings.getDefaultSsid()) 
     && !settings.getPwd().equals(settings.getDefaultPwd())
   ) {
     Serial.println(F("Attempting to connect to WiFi..."));
-    WiFi.mode(WiFiMode::WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.begin(settings.getSsid(), settings.getPwd());
     unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 15000UL) {
+    while (WiFi.status() != WL_CONNECTED && !Utils::flipSafeHasTimeExpired(start, 15000UL)) {
       yield();
     }
 
@@ -172,12 +157,13 @@ bool initWiFiSTAMode() {
 
     if (WiFi.status() == WL_CONNECTED) {
       // Connected
+      isSTAConnected = true;
+      ntpClient.begin();
       
-      return true;
+      return;
     }
   }
-
-  return false;
+  isSTAConnected = false;
 }
 
 // ===============================================================
@@ -185,7 +171,7 @@ bool initWiFiSTAMode() {
 // ===============================================================
 
 /**
- * ACTION FUNCTION:
+ * ACTION FUNCTION
  * This action function handles performing all the the 
  * device's custom runtime functionality.
  * 
@@ -216,7 +202,7 @@ void doDeviceTasks() {
 }
 
 /**
- * ACTION FUNCTION: 
+ * ACTION FUNCTION
  * Handles factory resetting instantly on powerup or during 
  * runtime when reset button is held for 10 seconds or more.
  * All factory resetting capabilities are handled by this function.
@@ -256,7 +242,6 @@ void doCheckForFactoryReset(bool isPowerOn) {
         ESP.restart();
       } 
     }
-
   }
 }
 
@@ -268,26 +253,32 @@ void doCheckForFactoryReset(bool isPowerOn) {
  * 
  */
 void doTimerFunctions() {
-  static int timerLastUpdate = -1;
-
-  if (isSTAMode && settings.isTimerOn()) {
+  if (isSTAConnected) {
     // On a network so NTP Possible
     ntpClient.update();
 
-    if (ntpClient.isTimeSet() && settings.isTimerOn()) {
+    if (settings.isTimerOn() && ntpClient.isTimeSet()) {
       // Timer is turned on and we can know the time
       int time24 = (ntpClient.getHours() * 100) + ntpClient.getMinutes();
+      time24 = Utils::adjustIntTimeForTimezone(time24, -6);
 
       // Determine what on/off zone we are in
       bool curInOnZone = inOnZone(time24);
     
       // Perform on/off change if applicable
+      static int timerLastUpdate = -1;
       if (timerLastUpdate == -1 || inOnZone(timerLastUpdate) != curInOnZone) {
         // Perform an update
         if (curInOnZone) {
-          settings.setLightsOn(true);
+          if (!settings.isLightsOn()) { 
+            settings.setLightsOn(true);
+            settings.saveSettings();
+          }
         } else {
-          settings.setLightsOn(false);
+          if (settings.isLightsOn()) {
+            settings.setLightsOn(false);
+            settings.saveSettings();
+          }
         }
         timerLastUpdate = time24;
       }
@@ -300,21 +291,30 @@ void doTimerFunctions() {
 // ===============================================================
 
 void webHandleMainPage() {
-  webHandleIncomingArgs();
+  doHandleMainPage("");
+}
+
+void doHandleMainPage(String popupMessage) {
+  doHandleIncomingArgs(popupMessage.isEmpty());
   
   // Generate Main Page
   String content = MAIN_PAGE;
   content.replace(F("${title}"), settings.getTitle());
   content.replace(F("${heading}"), settings.getHeading());
   content.replace(F("${version}"), FIRMWARE_VERSION);
-  // FIXME: Need to figure out ${status_message}
-  content.replace(F("${toggle_hidden}"), (WiFi.getMode() == WiFiMode::WIFI_STA ? F("") : F("hidden")));
+  content.replace(F("${status_message}"), popupMessage);
+  content.replace(F("${toggle_hidden}"), ntpClient.isTimeSet() ? F("") : F("hidden"));
   content.replace(F("${on_off_status}"), settings.isLightsOn() ? F("On") : F("Off"));
-  content.replace(F("${cur_time}"), (ntpClient.isTimeSet() ? ntpClient.getFormattedTime() : F("Unknown")));
+  if (ntpClient.isTimeSet()) {
+    String sTime12 = Utils::intTimeToString12Time(Utils::adjustIntTimeForTimezone(((ntpClient.getHours() * 100) + ntpClient.getMinutes()), -6));
+    content.replace(F("${cur_time}"), sTime12);
+  } else {
+    content.replace(F("${cur_time}"), F("Unknown"));
+  }
   content.replace(F("${timer_on_off}"), settings.isTimerOn() ? F("Enabled") : F("Disabled"));
-  content.replace(F("${schedule_hide}"), settings.isTimerOn() ? F("") : F("hidden")); 
-  content.replace(F("${on_at}"), intTimeToStringTime(settings.getOnTime()));
-  content.replace(F("${off_at}"), intTimeToStringTime(settings.getOffTime()));
+  content.replace(F("${schedule_hide}"), settings.isTimerOn() && ntpClient.isTimeSet() ? F("") : F("hidden")); 
+  content.replace(F("${on_at}"), Utils::intTimeToStringTime(settings.getOnTime()));
+  content.replace(F("${off_at}"), Utils::intTimeToStringTime(settings.getOffTime()));
   
   // Send Main Page
   web.send(200, F("text/html"), content);
@@ -332,7 +332,6 @@ void webHandleSettingsPage() {
   String content = SETTINGS_PAGE;
 
   content.replace(F("${title}"), settings.getTitle());
-  content.replace(F("${heading}"), settings.getHeading());
   content.replace(F("${version}"), FIRMWARE_VERSION);
   content.replace(F("${ssid}"), settings.getSsid());
   content.replace(F("${pwd}"), settings.getPwd());
@@ -343,8 +342,8 @@ void webHandleSettingsPage() {
   yield();
 }
 
-void webHandleIncomingArgs() {
-  if (web.method() == HTTP_POST) {
+void doHandleIncomingArgs(bool enabled) {
+  if (enabled && web.method() == HTTP_POST) {
     String doAction = web.arg(F("do"));
     if (doAction.equals(F("btn_on"))) {
       // Turn on lights if applicable
@@ -368,8 +367,8 @@ void webHandleIncomingArgs() {
       String off = web.arg(F("offat"));
       if (!on.isEmpty() && !off.isEmpty()) {
         // convert and store updated times
-        settings.setOnTime(stringTimeToIntTime(on));
-        settings.setOffTime(stringTimeToIntTime(off));
+        settings.setOnTime(Utils::stringTimeToIntTime(on));
+        settings.setOffTime(Utils::stringTimeToIntTime(off));
         settings.saveSettings();
       }
     } else if (doAction.equals(F("goto_admin"))) {
@@ -387,7 +386,6 @@ void webHandleIncomingArgs() {
 
       if (
         !title.isEmpty()
-        && !heading.isEmpty()
         && !ssid.isEmpty()
         && !pwd.isEmpty()
         && !adminUser.isEmpty()
@@ -442,55 +440,9 @@ bool inOnZone(int time24) {
     || (
       settings.getOnTime() > settings.getOffTime()
       && (
-        time24 > settings.getOnTime() 
-        || time24 <= settings.getOffTime()
+        time24 >= settings.getOnTime() 
+        || time24 < settings.getOffTime()
       )
     )
   );
-}
-
-int stringTimeToIntTime(String time24) {
-  int sepIndex = time24.indexOf(":");
-  if (sepIndex != -1) {
-    int hours = time24.substring(0, sepIndex).toInt();
-    int mins = time24.substring(sepIndex + 1).toInt();
-
-    return ((hours * 100) + mins);
-  }
-
-  return 0;
-}
-
-/**
- * UTILITY FUNCTION
- * Converts an int which represents a 24 hour time
- * into a String time with a colon between the 
- * hours and minutes.
- */
-String intTimeToStringTime(int time24) {
-  if (time24 < 10) {
-    String temp = F("00:0");
-    temp.concat(String(time24));
-
-    return temp;
-  } else if (time24 < 100) {
-    String temp = F("00:");
-    temp.concat(String(time24));
-
-    return temp;
-  } else if (time24 < 1000) {
-    String t = String(time24);
-    String temp = t.substring(0,1);
-    temp.concat(F(":"));
-    temp.concat(t.substring(1, 3));
-
-    return temp;
-  } else {
-    String t = String(time24);
-    String temp = t.substring(0, 2);
-    temp.concat(F(":"));
-    temp.concat(t.substring(2, 4));
-
-    return temp;
-  }
 }

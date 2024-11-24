@@ -11,7 +11,7 @@
     the containing application.
 
     Written by: Scott Griffis
-    Date: 10-01-2023
+    Date: 11-22-2024
   */
   class Utils {
     private:
@@ -28,6 +28,11 @@
       static String hashString(String str);
       static void signalIpAddress(int ledPin, String ipAddress, bool quick);
       static float convertCelciusToFahrenheit(float celcius);
+      static String intTimeToStringTime(int time24);
+      static String intTimeToString12Time(int time24);
+      static bool flipSafeHasTimeExpired(unsigned long startMillis, unsigned long expireInMillis);
+      static int stringTimeToIntTime(String time24);
+      static int adjustIntTimeForTimezone(int time24, int timezone);
   };
 
 #endif

@@ -7,6 +7,7 @@
     volatile data is lost and defaulted each time the software runs.
 
     Written by: Scott Griffis
+    Date: 11-23-24
 */
 
 #ifndef Settings_h
@@ -66,17 +67,17 @@
             // compile time and constant in nature.
             // *****************************************************************************
             struct ConstSettings {
-                String hostname;
-                String apSsid;
-                String apNetIp;
-                String apSubnet;
-                String apGateway;
+                String  hostname   ;
+                String  apSsid     ;
+                String  apNetIp    ;
+                String  apSubnet   ;
+                String  apGateway  ;
             } cSettings = {
                 "Lumen", // <-------------- hostname (*later ID is added)
                 "Lumen_", // <------------- apSsid (*later ID is added)
                 "192.168.1.1", // <-------- apNetIp
                 "255.255.255.0", // <------ apSubnet
-                "192.168.1.1", // <-------- apGateway
+                "0.0.0.0", // <------------ apGateway
             };
             
             void defaultSettings();
@@ -131,10 +132,10 @@
             bool           isLightsOn          ()                       ;
             
             // WiFi AP Settings
-            String         getHostname       (String deviceId)    ;
-            String         getApSsid         (String deviceId)    ;
-            String         getApNetIp        ()                   ;
-            String         getApSubnet       ()                   ;    
-            String         getApGateway      ()                   ;
+            String       getHostname       (String deviceId)    ;
+            String       getApSsid         (String deviceId)    ;
+            String       getApNetIp        ()                   ;
+            String       getApSubnet       ()                   ;    
+            String       getApGateway      ()                   ;
     };
 #endif

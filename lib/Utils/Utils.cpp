@@ -3,7 +3,7 @@
   the containing application.
 
   Written by: Scott Griffis
-  Date: 10-01-2023
+  Date: 11-22-2024
 */
 
 #include "Utils.h"
@@ -77,6 +77,91 @@ void Utils::signalIpAddress(int ledPin, String ipAddress, bool quick) {
   displayOctet(ledPin, fourth);
   displayDone(ledPin); // Fast blink...
 } 
+
+int Utils::stringTimeToIntTime(String time24) {
+  int sepIndex = time24.indexOf(":");
+  if (sepIndex != -1) {
+    int hours = time24.substring(0, sepIndex).toInt();
+    int mins = time24.substring(sepIndex + 1).toInt();
+
+    return ((hours * 100) + mins);
+  }
+
+  return 0;
+}
+
+/**
+ * UTILITY FUNCTION
+ * Converts an int which represents a 24 hour time
+ * into a String time with a colon between the 
+ * hours and minutes.
+ */
+String Utils::intTimeToStringTime(int time24) {
+  if (time24 < 10) {
+    String temp = F("00:0");
+    temp.concat(String(time24));
+
+    return temp;
+  } else if (time24 < 100) {
+    String temp = F("00:");
+    temp.concat(String(time24));
+
+    return temp;
+  } else if (time24 < 1000) {
+    String t = String(time24);
+    String temp = t.substring(0,1);
+    temp.concat(F(":"));
+    temp.concat(t.substring(1, 3));
+
+    return temp;
+  } else {
+    String t = String(time24);
+    String temp = t.substring(0, 2);
+    temp.concat(F(":"));
+    temp.concat(t.substring(2, 4));
+
+    return temp;
+  }
+}
+
+int Utils::adjustIntTimeForTimezone(int time24, int timezone) {
+  int mins = (time24 % 100);
+  int hours = (time24 / 100) + timezone;
+  if (hours < 0) {
+    hours += 24;
+  }
+
+  return ((hours * 100) + mins);
+}
+
+String Utils::intTimeToString12Time(int time24) {
+  int h = time24 / 100;
+  int m = time24 % 100;
+  
+  String ap = "AM";
+  if (h > 12) {
+    h -= 12;
+    ap = "PM";
+  }
+
+  String time = String(h);
+  time.concat(m < 10 ? ":0" : ":");
+  time.concat(String(m));
+  time.concat(" ");
+  time.concat(ap);
+
+  return time;
+}
+
+bool Utils::flipSafeHasTimeExpired(unsigned long startMillis, unsigned long expireInMillis) {
+  unsigned long now = millis();
+  if (now >= startMillis) {
+
+    return now - startMillis >= expireInMillis;
+  }
+  
+  return (((__LONG_MAX__ * 2UL + 1UL) - startMillis + now) >= expireInMillis);
+}
 
 
 
@@ -192,3 +277,4 @@ void Utils::displayDone(int ledPin) {
 float Utils::convertCelciusToFahrenheit(float celcius) {
   return ((celcius * 9/5) + 32);
 }
+
