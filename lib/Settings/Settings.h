@@ -1,15 +1,3 @@
-/*
-    Settings - A class to contain, maintain, store and retreive settings needed
-    by the application. This Class object is intented to be the sole manager of 
-    data used throughout the applicaiton. It handles storing both volitile and 
-    non-volatile data, where by definition the non-volitile data is persisted
-    in flash memory and lives beyond the running life of the software and the 
-    volatile data is lost and defaulted each time the software runs.
-
-    Written by: Scott Griffis
-    Date: 11-23-24
-*/
-
 #ifndef Settings_h
     #define Settings_h
 
@@ -20,6 +8,14 @@
     #include <HardwareSerial.h>
     #include <MD5Builder.h>
 
+    /**
+     * The Settings class instantiates into an object which is intended to be the gateway
+     * thru which the software interacts with all settings, including those persisted to
+     * the Flash Memory.
+     * 
+     * @author Scott Griffis
+     * @date 11-23-24 
+     */
     class Settings {
         private:
             // *****************************************************************************

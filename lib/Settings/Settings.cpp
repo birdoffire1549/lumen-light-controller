@@ -6,18 +6,20 @@
     in flash memory and lives beyond the running life of the software and the 
     volatile data is lost and defaulted each time the software runs.
 
-    Written by: Scott Griffis
+    Written by: .... Scott Griffis
+    Date: .......... 11-23-24
 */
 
 #include "Settings.h"
 
 /**
- * #### CLASS CONSTRUCTOR ####
+ * CLASS CONSTRUCTOR
+ * 
  * Allows for external instantiation of
  * the class into an object.
-*/
+ */
 Settings::Settings() {
-    // Initially default the settings...
+    // Initially default the settings
     defaultSettings();
 }
 
@@ -28,7 +30,7 @@ Settings::Settings() {
  * 
  * @return Returns true if successful saving defaulted settings otherwise
  * returns false as bool.
-*/
+ */
 bool Settings::factoryDefault() {
     defaultSettings();
     bool ok = saveSettings();
@@ -45,24 +47,27 @@ bool Settings::factoryDefault() {
  * 
  * @return Returns true if data was loaded from memory and the sentinel 
  * value was valid.
-*/
+ */
 bool Settings::loadSettings() {
     bool ok = false;
-    // Setup EEPROM for loading and saving...
+    // Setup EEPROM for loading and saving
     EEPROM.begin(sizeof(NonVolatileSettings));
 
-    // Persist default settings or load settings...
+    // Persist default settings or load settings
     delay(15);
 
-    /* Load from EEPROM if applicable... */
-    if (EEPROM.percentUsed() >= 0) { // Something is stored from prior...
+    /* Load From EEPROM If Applicable */
+    if (EEPROM.percentUsed() >= 0) { 
+        // Something is stored from prior
         Serial.println(F("\nLoading settings from EEPROM..."));
         EEPROM.get(0, nvSettings);
-        if (strcmp(nvSettings.sentinel, hashNvSettings(nvSettings).c_str()) != 0) { // Memory is corrupt...
+        if (strcmp(nvSettings.sentinel, hashNvSettings(nvSettings).c_str()) != 0) { 
+            // Memory is corrupt
             EEPROM.wipe();
             factoryDefault();
             Serial.println("Stored settings footprint invalid, stored settings have been wiped and defaulted!");
-        } else { // Memory seems ok...
+        } else { 
+            // Memory seems ok
             Serial.print(F("Percent of ESP Flash currently used is: "));
             Serial.print(EEPROM.percentUsed());
             Serial.println(F("%"));
@@ -81,7 +86,7 @@ bool Settings::loadSettings() {
  * @param nvSet An instance of NonVolatileSettings to calculate a hash for.
  * 
  * @return Returns the calculated hash value as String.
-*/
+ */
 String Settings::hashNvSettings(NonVolatileSettings nvSet) {
     String content = "";
     content = content + String(nvSet.ssid);
@@ -107,7 +112,7 @@ String Settings::hashNvSettings(NonVolatileSettings nvSet) {
  * into flash memory.
  *
  * @return Returns a true if save was successful otherwise a false as bool.
-*/
+ */
 bool Settings::saveSettings() {
     strcpy(nvSettings.sentinel, hashNvSettings(nvSettings).c_str()); // Ensure accurate Sentinel Value.
     EEPROM.begin(sizeof(NonVolatileSettings));
@@ -126,7 +131,7 @@ bool Settings::saveSettings() {
  * Used to determine if the current network settings are in default values.
  * 
  * @return Returns a true if default values otherwise a false as bool. 
-*/
+ */
 bool Settings::isFactoryDefault() {
     
     return (strcmp(hashNvSettings(nvSettings).c_str(), hashNvSettings(factorySettings).c_str()) == 0);
@@ -291,7 +296,8 @@ Private Functions
 */
 
 /**
- * #### PRIVATE ####
+ * PRIVATE FUNCTION
+ * 
  * This function is used to set or reset all settings to 
  * factory default values but does not persist the value 
  * changes to flash.

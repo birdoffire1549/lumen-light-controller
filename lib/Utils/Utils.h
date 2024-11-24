@@ -4,15 +4,15 @@
   #include <WString.h>
   #include <Arduino.h>
 
-  /*
-    CLASS: Utils
-
-    This is a Utility function class intented to contain useful utility functions for use in 
-    the containing application.
-
-    Written by: Scott Griffis
-    Date: 11-22-2024
-  */
+  /**
+   * UTILITY CLASS
+   * 
+   * This is a Utility function class intented to contain useful utility functions for use in 
+   * the containing application.
+   * 
+   * @author Scott Griffis
+   * @date 11-22-2024
+   */
   class Utils {
     private:
       Utils();
