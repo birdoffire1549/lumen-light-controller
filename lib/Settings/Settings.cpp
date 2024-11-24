@@ -89,8 +89,6 @@ String Settings::hashNvSettings(NonVolatileSettings nvSet) {
     content = content + String(nvSet.adminUser);
     content = content + String(nvSet.adminPwd);
     content = content + String(nvSet.apPwd);
-    content = content + String(nvSet.title);
-    content = content + String(nvSet.heading);
     content = content + String(nvSet.timerOn ? "true" : "false");
     content = content + String(nvSet.onTime);
     content = content + String(nvSet.offTime);
@@ -265,30 +263,6 @@ String Settings::getApGateway() {
 }
 
 
-String Settings::getHeading() {
-
-    return String(nvSettings.heading);
-}
-
-void Settings::setHeading(const char *heading) {
-    if (sizeof(heading) <= sizeof(nvSettings.heading)) {
-        strcpy(nvSettings.heading, heading);
-    }
-}
-
-
-String Settings::getTitle() {
-
-    return String(nvSettings.title);
-}
-
-void Settings::setTitle(const char *title) {
-    if (sizeof(title) <= sizeof(nvSettings.title)) {
-        strcpy(nvSettings.title, title);
-    }
-}
-
-
 bool Settings::isLightsOn() {
     
     return nvSettings.lightsOn;
@@ -329,8 +303,6 @@ void Settings::defaultSettings() {
     strcpy(nvSettings.adminUser, factorySettings.adminUser);
     strcpy(nvSettings.adminPwd, factorySettings.adminPwd);
     strcpy(nvSettings.apPwd, factorySettings.apPwd);
-    strcpy(nvSettings.title, factorySettings.title);
-    strcpy(nvSettings.heading, factorySettings.heading);
     nvSettings.timerOn = factorySettings.timerOn;
     nvSettings.onTime = factorySettings.onTime;
     nvSettings.offTime = factorySettings.offTime;

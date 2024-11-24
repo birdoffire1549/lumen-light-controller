@@ -31,8 +31,6 @@
                 char           adminUser        [51]  ;
                 char           adminPwd         [51]  ;
                 char           apPwd            [51]  ;
-                char           title            [51]  ;
-                char           heading          [51]  ;
                 bool           timerOn                ;
                 int            onTime                 ;
                 int            offTime                ;
@@ -46,8 +44,6 @@
                 "admin", // <------------------------ adminUser
                 "admin", // <------------------------ adminPwd
                 "P@ssw0rd123", // <------------------ apPwd
-                "Lumen Lighting Controller", // <---- title
-                "Device Info", // <------------------ heading
                 false, // <-------------------------- timerOn
                 1700, // <--------------------------- onTime
                 2200, // <--------------------------- offTime
@@ -108,10 +104,6 @@
             String         getAdminPwd         ()                       ;
             void           setApPwd            (const char *pwd)        ;
             String         getApPwd            ()                       ;
-            void           setTitle            (const char *title)      ;
-            String         getTitle            ()                       ;
-            void           setHeading          (const char *heading)    ;
-            String         getHeading          ()                       ;
 
             // WiFi STA Settings
             void           setSsid             (const char *ssid)       ;

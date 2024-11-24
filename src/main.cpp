@@ -299,9 +299,9 @@ void doHandleMainPage(String popupMessage) {
   
   // Generate Main Page
   String content = MAIN_PAGE;
-  content.replace(F("${title}"), settings.getTitle());
-  content.replace(F("${heading}"), settings.getHeading());
   content.replace(F("${version}"), FIRMWARE_VERSION);
+  content.replace(F("${wifi_addr}"), !WiFi.isConnected() ? F("N/A") : WiFi.localIP().toString());
+  content.replace(F("${ssid}"), !WiFi.isConnected() ? F("Not Connected") : WiFi.SSID());
   content.replace(F("${status_message}"), popupMessage);
   content.replace(F("${toggle_hidden}"), ntpClient.isTimeSet() ? F("") : F("hidden"));
   content.replace(F("${on_off_status}"), settings.isLightsOn() ? F("On") : F("Off"));
@@ -331,8 +331,8 @@ void webHandleSettingsPage() {
 
   String content = SETTINGS_PAGE;
 
-  content.replace(F("${title}"), settings.getTitle());
   content.replace(F("${version}"), FIRMWARE_VERSION);
+  content.replace(F("${ap_pwd}"), settings.getApPwd());
   content.replace(F("${ssid}"), settings.getSsid());
   content.replace(F("${pwd}"), settings.getPwd());
   content.replace(F("${adminuser}"), settings.getAdminUser());
@@ -377,24 +377,22 @@ void doHandleIncomingArgs(bool enabled) {
       return;
     } else if (doAction.equals(F("admin_save"))) {
       // Save admin settings
-      String title = web.arg(F("title"));
-      String heading = web.arg(F("heading"));
+      String appwd = web.arg(F("appwd"));
       String ssid = web.arg(F("ssid"));
       String pwd = web.arg(F("pwd"));
       String adminUser = web.arg(F("adminuser"));
       String adminPwd = web.arg(F("adminpwd"));
 
       if (
-        !title.isEmpty()
-        && !ssid.isEmpty()
+        !ssid.isEmpty()
+        && !appwd.isEmpty()
         && !pwd.isEmpty()
         && !adminUser.isEmpty()
         && !adminPwd.isEmpty()
       ) {
-        bool needReboot = !settings.getSsid().equals(ssid) || !settings.getPwd().equals(pwd);
+        bool needReboot = !settings.getSsid().equals(ssid) || !settings.getPwd().equals(pwd) || !settings.getApPwd().equals(appwd);
 
-        settings.setTitle(title.c_str());
-        settings.setHeading(heading.c_str());
+        settings.setApPwd(appwd.c_str());
         settings.setSsid(ssid.c_str());
         settings.setPwd(pwd.c_str());
         settings.setAdminUser(adminUser.c_str());
