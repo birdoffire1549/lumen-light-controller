@@ -3,7 +3,7 @@
   utility functions for use in the containing application.
 
   Written by: .... Scott Griffis
-  Date: .......... 11-22-2024
+  Date: .......... 12-01-2024
 */
 
 #include "Utils.h"
@@ -142,12 +142,13 @@ String Utils::intTimeToStringTime(int time24) {
  * 
  * @param time24 The 24hour time as an int.
  * @param timezone The numeric offset for the timezone as int.
+ * @param isDst Indicates if timezone is in DST time as bool.
  * 
  * @return Returns the adjusted time as int.
  */
-int Utils::adjustIntTimeForTimezone(int time24, int timezone) {
+int Utils::adjustIntTimeForTimezone(int time24, int timezone, bool isDst) {
   int mins = (time24 % 100);
-  int hours = (time24 / 100) + timezone;
+  int hours = (time24 / 100) + timezone + (isDst ? 1 : 0);
   if (hours < 0) {
     hours += 24;
   }
@@ -174,6 +175,8 @@ String Utils::intTimeToString12Time(int time24) {
   if (h > 12) {
     h -= 12;
     ap = "PM";
+  } else if (h == 0) {
+    h = 12;
   }
 
   String time = String(h);

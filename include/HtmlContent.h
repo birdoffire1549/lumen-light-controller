@@ -93,7 +93,7 @@
                     "h2 { text-align: center; background-color: #58ADB0; color: #FFFFFF; border: 3px;  border-radius: 15px; }"
                     "#wrapper { background-color: #E6EFFF; color: #000000; padding: 20px; margin-left: auto; margin-right: auto; max-width: 700px; box-shadow: 3px 3px 3px #b8b8b8; }"
                     "#info, input { font-size: 25px; font-weight: bold; line-height: 150%; }"
-                    "strong { font-size: 30px; }"
+                    "strong, label { font-size: 30px; }"
                     ".hlt { background-color: #FFFFFF; display: inline; }"
                     ".tiny { font-size: 8px; }"
                     "button { background-color: #5878B0; color: white; font-size: 16px; padding: 10px 24px; border-radius: 12px; border: 2px solid black; transition-duration: 0.4s; }"
@@ -106,6 +106,9 @@
                     "Firmware Version: ${version}"
                     "<div id=\"info\">"
                         "<form method=\"post\" action=\"/\">"
+                            "<h2>Time Related</h2>"
+                            "<label for=\"timezone\">Time Zone:&nbsp;</label><input type=\"number\" id=\"timezone\" name=\"timezone\" min=\"-12\" max=\"13\" step=\".5\" value=\"${time_zone}\"><br />"
+                            "<label for=\"dst\">Currently DST:&nbsp;</label><input type=\"checkbox\" id=\"dst\" name=\"dst\" value=\"DST\" ${checked_status}>"
                             "<h2>Access Point</h2>"
                             "<strong>Password:</strong> <input maxlength=\"50\" type=\"text\" value=\"${ap_pwd}\" name=\"appwd\" id=\"appwd\">"
                             "<h2>WiFi</h2>"
@@ -124,5 +127,5 @@
             "</body>"
         "</html>"
     };
-    
+
 #endif

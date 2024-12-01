@@ -29,7 +29,7 @@
 
   Hardware: ...... ESP8266
   Written by: .... Scott Griffis
-  Date: .......... 11/24/2024
+  Date: .......... 12/01/2024
 */
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -46,7 +46,7 @@
 // =================================
 // Define Statements
 // =================================
-#define FIRMWARE_VERSION "1.0.0"
+#define FIRMWARE_VERSION "1.1.2"
 
 #define LIGHT_PIN 5 // <----- D1
 #define ON_OFF_PIN 14 // <--- D5 
@@ -109,6 +109,8 @@ void setup() {
   // Initialize Lights on/off status
   if (settings.isLightsOn()) {
     digitalWrite(LIGHT_PIN, HIGH);
+  } else {
+    digitalWrite(LIGHT_PIN, LOW);
   }
 
   // Determine Device ID
@@ -306,7 +308,7 @@ void doTimerFunctions() {
     if (settings.isTimerOn() && ntpClient.isTimeSet()) {
       // Timer is turned on and we can know the time
       int time24 = (ntpClient.getHours() * 100) + ntpClient.getMinutes();
-      time24 = Utils::adjustIntTimeForTimezone(time24, -6);
+      time24 = Utils::adjustIntTimeForTimezone(time24, settings.getTimeZone(), settings.isDst());
 
       // Determine what on/off zone we are in
       bool curInOnZone = inOnZone(time24);
@@ -364,7 +366,13 @@ void doHandleMainPage(String popupMessage) {
   content.replace(F("${on_off_status}"), settings.isLightsOn() ? F("On") : F("Off"));
   if (ntpClient.isTimeSet()) {
     // Time is set so display it
-    String sTime12 = Utils::intTimeToString12Time(Utils::adjustIntTimeForTimezone(((ntpClient.getHours() * 100) + ntpClient.getMinutes()), -6));
+    String sTime12 = Utils::intTimeToString12Time(
+      Utils::adjustIntTimeForTimezone(
+        ((ntpClient.getHours() * 100) + ntpClient.getMinutes()), 
+        settings.getTimeZone(), 
+        settings.isDst()
+      )
+    );
     content.replace(F("${cur_time}"), sTime12);
   } else {
     // Time is unknown
@@ -434,6 +442,8 @@ void doHandleIncomingArgs(bool enabled) {
       String pwd = web.arg(F("pwd"));
       String adminUser = web.arg(F("adminuser"));
       String adminPwd = web.arg(F("adminpwd"));
+      String timeZone = web.arg(F("timezone"));
+      String dst = web.arg(F("dst"));
 
       if (
         !ssid.isEmpty()
@@ -441,6 +451,7 @@ void doHandleIncomingArgs(bool enabled) {
         && !pwd.isEmpty()
         && !adminUser.isEmpty()
         && !adminPwd.isEmpty()
+        && !timeZone.isEmpty()
       ) {
         /* Determine If A Reboot Will Be Needed To Apply Settings Changes */
         bool needReboot = !settings.getSsid().equals(ssid) || !settings.getPwd().equals(pwd) || !settings.getApPwd().equals(appwd);
@@ -451,6 +462,8 @@ void doHandleIncomingArgs(bool enabled) {
         settings.setPwd(pwd.c_str());
         settings.setAdminUser(adminUser.c_str());
         settings.setAdminPwd(adminPwd.c_str());
+        settings.setTimeZone(timeZone.toInt());
+        settings.setDst(dst.equalsIgnoreCase("DST") ? true : false);
 
         /* Save Changes */
         settings.saveSettings();
@@ -508,6 +521,8 @@ void webHandleSettingsPage() {
   content.replace(F("${pwd}"), settings.getPwd());
   content.replace(F("${adminuser}"), settings.getAdminUser());
   content.replace(F("${adminpwd}"), settings.getAdminPwd());
+  content.replace(F("${time_zone}"), String(settings.getTimeZone()));
+  content.replace(F("${checked_status}"), (settings.isDst() ? F("checked") : F("")));
   
   /* Send Page Content */
   web.send(200, F("text/html"), content);

@@ -27,6 +27,8 @@
                 char           adminUser        [51]  ;
                 char           adminPwd         [51]  ;
                 char           apPwd            [51]  ;
+                int            timeZone               ;
+                bool           dst                    ;
                 bool           timerOn                ;
                 int            onTime                 ;
                 int            offTime                ;
@@ -40,6 +42,8 @@
                 "admin", // <------------------------ adminUser
                 "admin", // <------------------------ adminPwd
                 "P@ssw0rd123", // <------------------ apPwd
+                -6, // <----------------------------- timeZone
+                false, // <-------------------------- dst
                 false, // <-------------------------- timerOn
                 1700, // <--------------------------- onTime
                 2200, // <--------------------------- offTime
@@ -106,6 +110,12 @@
             String         getSsid             ()                       ;
             void           setPwd              (const char *pwd)        ;
             String         getPwd              ()                       ;
+
+            // Time related
+            void           setTimeZone         (int timeZone)           ;
+            int            getTimeZone         ()                       ;
+            void           setDst              (bool isDst)             ;
+            bool           isDst               ()                       ;
 
             // Used for timer functionality
             void           setTimerOn          (bool on)                ;

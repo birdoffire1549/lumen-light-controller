@@ -167,6 +167,26 @@ void Settings::setPwd(const char *pwd) {
 }
 
 
+int Settings::getTimeZone() {
+
+    return nvSettings.timeZone;
+}
+
+void Settings::setTimeZone(int timeZone) {
+    nvSettings.timeZone = timeZone;
+}
+
+
+bool Settings::isDst() {
+
+    return nvSettings.dst;
+}
+
+void Settings::setDst(bool isDst) {
+    nvSettings.dst = isDst;
+}
+
+
 bool Settings::isTimerOn() {
     
     return nvSettings.timerOn;
@@ -309,6 +329,8 @@ void Settings::defaultSettings() {
     strcpy(nvSettings.adminUser, factorySettings.adminUser);
     strcpy(nvSettings.adminPwd, factorySettings.adminPwd);
     strcpy(nvSettings.apPwd, factorySettings.apPwd);
+    nvSettings.timeZone = factorySettings.timeZone;
+    nvSettings.dst = factorySettings.dst;
     nvSettings.timerOn = factorySettings.timerOn;
     nvSettings.onTime = factorySettings.onTime;
     nvSettings.offTime = factorySettings.offTime;
